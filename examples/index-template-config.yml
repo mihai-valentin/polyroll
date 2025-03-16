@@ -1,0 +1,15 @@
+elasticsearch:
+  host: "elasticsearch-host"
+  basicAuthToken: "basic-auth-token"
+
+policies:
+  index-policy-foo:
+    phases:
+      warm: 1
+      cold: 30
+      delete: 60
+
+templates:
+  index-template-foo:
+    policy: "index-policy-foo"
+    patterns: [ "index-foo-*" ]
