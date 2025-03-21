@@ -1,4 +1,4 @@
-package internal
+package elk
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ func (c *MockedClient) Do(*http.Request) (*http.Response, error) {
 	resp := &http.Response{
 		StatusCode: 200,
 		Body: io.NopCloser(bytes.NewBufferString(`{
-            "acknowledged": true        
+            "acknowledged": true
         }`)),
 	}
 
@@ -24,7 +24,7 @@ func (c *MockedClient) Do(*http.Request) (*http.Response, error) {
 }
 
 func TestElkClient_CreateOrUpdateIlmPolicy(t *testing.T) {
-	elkClientWithMockedClient := ElkClient{
+	elkClientWithMockedClient := Client{
 		HttpClient: &MockedClient{},
 		baseURL:    "localhost/",
 		authToken:  "token",

@@ -1,4 +1,4 @@
-package internal
+package elk
 
 import (
 	"bytes"
@@ -18,18 +18,14 @@ type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-type acknowledgmentResponse struct {
-	Acknowledged bool `json:"acknowledged"`
-}
-
-type ElkClient struct {
+type Client struct {
 	HttpClient
 	baseURL   string
 	authToken string
 }
 
-func NewElkClient(baseUrl string, basicAuthToken string) *ElkClient {
-	return &ElkClient{
+func NewElkClient(baseUrl string, basicAuthToken string) *Client {
+	return &Client{
 		HttpClient: &http.Client{
 			Timeout: 1 * time.Second,
 		},
@@ -38,19 +34,19 @@ func NewElkClient(baseUrl string, basicAuthToken string) *ElkClient {
 	}
 }
 
-func (c *ElkClient) CreateOrUpdateIlmPolicy(policy *resource.IlmPolicy) error {
+func (c *Client) CreateOrUpdateIlmPolicy(policy *resource.IlmPolicy) error {
 	endpoint := fmt.Sprintf("%s%s%s", c.baseURL, createOrUpdateIlmPolicyEndpoint, policy.Name)
 
 	return c.putResource(endpoint, policy.Schema())
 }
 
-func (c *ElkClient) CreateOrUpdateIndexTemplate(indexTemplate *resource.IndexTemplate) error {
+func (c *Client) CreateOrUpdateIndexTemplate(indexTemplate *resource.IndexTemplate) error {
 	endpoint := fmt.Sprintf("%s%s%s", c.baseURL, createOrUpdateIndexTemplateEndpoint, indexTemplate.Name)
 
 	return c.putResource(endpoint, indexTemplate.Schema())
 }
 
-func (c *ElkClient) putResource(endpoint string, schema any) error {
+func (c *Client) putResource(endpoint string, schema any) error {
 	jsonSchema, err := json.Marshal(schema)
 	if err != nil {
 		return err
@@ -69,7 +65,7 @@ func (c *ElkClient) putResource(endpoint string, schema any) error {
 	return nil
 }
 
-func (c *ElkClient) do(req *http.Request) (*http.Response, error) {
+func (c *Client) do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Basic "+c.authToken)
@@ -79,24 +75,47 @@ func (c *ElkClient) do(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode != 200 {
-		return resp, fmt.Errorf("ELK API call failed with status code: %d", resp.StatusCode)
+		responseError := parseErrorFromResponse(resp)
+
+		return resp, fmt.Errorf("ELK API call failed with status code %d: %w", resp.StatusCode, responseError)
 	}
 
-	var elkResponse acknowledgmentResponse
-	if err := json.Unmarshal(respBody, &elkResponse); err != nil {
-		return resp, err
-	}
-
-	if !elkResponse.Acknowledged {
-		return resp, errors.New("ELK API call wasn't acknowledged")
+	if ok, err := parseAcknowledgmentStatusFromResponse(resp); !ok || err != nil {
+		return resp, fmt.Errorf("ELK API call wasn't acknowledged: %w", err)
 	}
 
 	return resp, nil
+}
+
+func parseErrorFromResponse(resp *http.Response) error {
+	var elkResponse errorResponse
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if err := json.Unmarshal(respBody, &elkResponse); err != nil {
+		return err
+	}
+
+	return errors.New(elkResponse.Error.Reason)
+}
+
+func parseAcknowledgmentStatusFromResponse(resp *http.Response) (bool, error) {
+	var elkResponse acknowledgmentResponse
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if err := json.Unmarshal(respBody, &elkResponse); err != nil {
+		return false, err
+	}
+
+	return elkResponse.Acknowledged, nil
 }

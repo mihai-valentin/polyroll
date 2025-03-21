@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/mihai-valentin/polyroll/internal"
+	"github.com/mihai-valentin/polyroll/internal/elk"
 	"log"
 	"os"
 )
@@ -16,7 +17,7 @@ func main() {
 		log.Fatalf("error reading config file: %s", err)
 	}
 
-	ec := internal.NewElkClient(config.ElkHost, config.AuthToken)
+	ec := elk.NewElkClient(config.ElkHost, config.AuthToken)
 
 	for _, policy := range config.IlmPolicies {
 		log.Printf("Creating policy [%s]...\n", policy.Name)

@@ -16,20 +16,25 @@ type Config struct {
 	IndexTemplates []*resource.IndexTemplate `yaml:"templates"`
 }
 
-type yamlConfigSchema struct {
-	Elasticsearch map[string]string `yaml:"elasticsearch"`
-	Polices       map[string]struct {
-		Phases struct {
-			Warm   uint `yaml:"warm"`
-			Cold   uint `yaml:"cold"`
-			Delete uint `yaml:"delete"`
-		} `yaml:"phases"`
-	} `yaml:"policies"`
+type yamlConfigSchemaPolicyPhases struct {
+	Warm   uint `yaml:"warm"`
+	Cold   uint `yaml:"cold"`
+	Delete uint `yaml:"delete"`
+}
 
-	Templates map[string]struct {
-		Policy   string   `yaml:"policy"`
-		Patterns []string `yaml:"patterns"`
-	} `yaml:"templates"`
+type yamlConfigSchemaPolicy struct {
+	Phases yamlConfigSchemaPolicyPhases `yaml:"phases"`
+}
+
+type yamlConfigSchemaTemplate struct {
+	Policy   string   `yaml:"policy"`
+	Patterns []string `yaml:"patterns"`
+}
+
+type yamlConfigSchema struct {
+	Elasticsearch map[string]string                   `yaml:"elasticsearch"`
+	Polices       map[string]yamlConfigSchemaPolicy   `yaml:"policies"`
+	Templates     map[string]yamlConfigSchemaTemplate `yaml:"templates"`
 }
 
 func ReadConfigFromFile(pathToFile string) (*Config, error) {
